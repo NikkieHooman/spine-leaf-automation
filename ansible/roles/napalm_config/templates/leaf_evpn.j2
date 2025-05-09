@@ -1,0 +1,11 @@
+router bgp {{ asn }}
+  router-id {{ hostvars[inventory_hostname].ansible_host }}
+  address-family l2vpn evpn
+{% for peer in evpn_peers %}
+  neighbor {{ peer }} remote-as {{ asn }}
+  neighbor {{ peer }} activate
+{% endfor %}
+{% for vni in vni_map.values() %}
+  vni {{ vni }} l2 underlay-interface Loopback0
+{% endfor %}
+
