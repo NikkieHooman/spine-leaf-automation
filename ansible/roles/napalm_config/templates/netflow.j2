@@ -1,0 +1,11 @@
+flow exporter EXPORTER-1
+  destination {{ collector_ip }}
+  transport udp 2055
+!
+flow monitor MONITOR-1
+  exporter EXPORTER-1
+  record ipv4
+!
+interface f3/0
+  ip flow monitor MONITOR-1 input
+
