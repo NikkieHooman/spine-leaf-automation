@@ -1,0 +1,31 @@
+all:
+  children:
+    spine:
+      hosts:
+        spine-1:
+          ansible_host: 127.0.0.1
+          ansible_connection: local
+        spine-2:
+          ansible_host: 127.0.0.1
+          ansible_connection: local
+        spine-3:
+          ansible_host: 127.0.0.1
+          ansible_connection: local
+    leaf:
+      hosts:
+        leaf-1:
+          ansible_host: 127.0.0.1
+          ansible_connection: local
+        leaf-2:
+          ansible_host: 127.0.0.1
+          ansible_connection: local
+        leaf-3:
+          ansible_host: 127.0.0.1
+          ansible_connection: local
+        leaf-4:
+          ansible_host: 127.0.0.1
+          ansible_connection: local
+        leaf-5:
+          ansible_host: 127.0.0.1
+          ansible_connection: local
+
