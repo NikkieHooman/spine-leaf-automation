@@ -39,7 +39,9 @@ ansible/
    ├─ verify_connectivity.yml 
    ├─ netflow_setup.yml   
    ├─ cleanup.yml          
-   └─ run_all.sh           
+   └─ run_all.sh
+analysis/
+└─ flow_analysis.ipynb 
 ```
 
 ---
@@ -103,3 +105,17 @@ ansible/
    ```bash
    ./run_all.sh
    ```
+## Data Analytics
+
+After collecting NetFlow/IPFIX records, use the `analysis/flow_analysis.ipynb` notebook to:
+
+1. **Load** exported CSVs from each leaf  
+2. **Clean** timestamps and drop incomplete records  
+3. **Aggregate** throughput per minute (bytes/sec)  
+4. **Plot** jitter distributions (if available)  
+5. **Identify** top 10 talkers by total bytes  
+
+**Run the notebook in Jupyter**  
+```bash
+cd analysis
+jupyter notebook flow_analysis.ipynb
