@@ -1,0 +1,9 @@
+hostname {{ inventory_hostname }}
+interface Loopback0
+  ip address {{ hostvars[inventory_hostname].ansible_host }} 255.255.255.255
+router ospf 1
+  router-id {{ hostvars[inventory_hostname].ansible_host }}
+{% for link in ospf_links %}
+network {{ link.subnet }} area 0
+{% endfor %}
+
