@@ -1,0 +1,13 @@
+- name: Day1 VXLAN/EVPN Overlay
+  hosts: spine:leaf
+  gather_facts: no
+  roles:
+    - role: napalm_config
+      vars:
+        config_template: "{{ 'spine_evpn.j2' if inventory_hostname in groups['spine'] else 'leaf_evpn.j2' }}"
+        j2_vars:
+          as_number: 65000
+          router_id: "{{ hostvars[inventory_hostname].loopback0 }}"
+          evpn_peers: "{{ evpn_peers }}"
+          vni_map: "{{ vni_map }}"
+
