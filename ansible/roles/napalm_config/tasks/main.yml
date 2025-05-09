@@ -1,7 +1,0 @@
----
-- import_tasks: push.yml
-  when: not force_rollback | default(false)
-
-- import_tasks: rollback.yml
-  when: force_rollback | default(false)
-
