@@ -1,0 +1,8 @@
+- name: Configure NetFlow/IPFIX
+  hosts: leaf
+  gather_facts: no
+  roles:
+    - role: napalm_config
+      vars:
+        config_template: netflow.j2
+
