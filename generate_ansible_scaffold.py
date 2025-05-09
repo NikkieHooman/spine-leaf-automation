@@ -323,7 +323,7 @@ PLAYBOOKS=(
   netflow_setup.yml
 )
 for pb in "${PLAYBOOKS[@]}"; do
-  echo "➡️  Executing $pb"
+  echo "  Executing $pb"
   ansible-playbook -i inventories/production.yml "playbooks/$pb"
   echo "  $pb complete"
 done
