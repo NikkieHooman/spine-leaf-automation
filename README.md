@@ -14,32 +14,32 @@ This repository provides a complete Infrastructure-as-Code (IaC) pipeline for em
 ```
 ansible/
 ├─ inventories/
-│  └─ production.yml        # Defines spine & leaf hosts
+│  └─ production.yml      
 ├─ group_vars/
-│  ├─ all.yml              # Shared credentials & NAPALM settings
-│  ├─ spine.yml            # Spine-specific loopback & OSPF vars
-│  └─ leaf.yml             # Leaf-specific VTEP, VNI, NetFlow vars
+│  ├─ all.yml            
+│  ├─ spine.yml           
+│  └─ leaf.yml            
 ├─ roles/
 │  └─ napalm_config/
 │     ├─ defaults/
-│     │  └─ main.yml       # Global role defaults (timeouts, diff tolerances)
+│     │  └─ main.yml      
 │     ├─ tasks/
-│     │  ├─ push.yml       # Load, commit, diff configurations
-│     │  ├─ rollback.yml   # Revert to last golden config
-│     │  └─ tests.yml      # LLDP/OSPF adjacency & ping tests
+│     │  ├─ push.yml       
+│     │  ├─ rollback.yml   
+│     │  └─ tests.yml     
 │     └─ templates/
-│        ├─ spine.j2       # Jinja2 underlay template for spines
-│        ├─ leaf.j2        # Jinja2 underlay template for leaves
-│        ├─ spine_evpn.j2  # Jinja2 EVPN overlay template for spines
-│        ├─ leaf_evpn.j2   # Jinja2 EVPN overlay template for leaves
-│        └─ netflow.j2     # Jinja2 NetFlow/IPFIX export template
+│        ├─ spine.j2      
+│        ├─ leaf.j2       
+│        ├─ spine_evpn.j2 
+│        ├─ leaf_evpn.j2   
+│        └─ netflow.j2     
 └─ playbooks/
-   ├─ day0_underlay.yml    # Deploy OSPF underlay
-   ├─ day1_overlay.yml     # Deploy VXLAN/EVPN overlay
-   ├─ verify_connectivity.yml # Health-check playbook
-   ├─ netflow_setup.yml    # Configure NetFlow/IPFIX export
-   ├─ cleanup.yml          # Rollback unintended changes
-   └─ run_all.sh           # Convenience script to run all playbooks
+   ├─ day0_underlay.yml   
+   ├─ day1_overlay.yml    
+   ├─ verify_connectivity.yml 
+   ├─ netflow_setup.yml   
+   ├─ cleanup.yml          
+   └─ run_all.sh           
 ```
 
 ---
