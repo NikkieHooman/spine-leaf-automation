@@ -1,0 +1,13 @@
+asn: 65000
+ospf_links:
+  - interface: f0/0
+    subnet: 10.0.0.0/30
+  - interface: f1/0
+    subnet: 10.0.0.4/30
+  - interface: f2/0
+    subnet: 10.0.0.8/30
+  - interface: f3/0
+    subnet: 10.0.0.12/30
+  - interface: f4/0
+    subnet: 10.0.0.16/30
+
