@@ -1,0 +1,17 @@
+- name: Restore golden configuration
+  napalm_config:
+    hostname: "{{ inventory_hostname }}"
+    rollback: true
+  when: force_rollback or (candidate.diff.splitlines() | length) > diff_tolerance
+
+- name: Verify running config after rollback
+  napalm_get:
+    hostname: "{{ inventory_hostname }}"
+    get_config: running
+  register: running_cfg
+
+- name: Display post-rollback diff
+  debug:
+    msg: "Post-rollback diff for {{ inventory_hostname }}:\n{{ running_cfg.diff }}"
+  when: running_cfg.diff is defined
+
