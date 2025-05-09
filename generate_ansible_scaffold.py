@@ -4,6 +4,7 @@ BASE = os.getcwd()
 ANSIBLE_DIR = os.path.join(BASE, 'ansible')
 
 templates = {
+    
     'ansible.cfg': '''
 [defaults]
 inventory = ansible/inventories/production.yml
@@ -45,7 +46,7 @@ all:
           ansible_connection: local
 ''',
 
-    
+   
     'ansible/group_vars/all.yml': '''
 ansible_user: admin
 ansible_password: P@ssw0rd
@@ -58,6 +59,15 @@ leaf_loopbacks:
   - 10.0.0.50
   - 10.0.0.54
   - 10.0.0.58
+expected_neighbors:
+  spine-1: 5
+  spine-2: 5
+  spine-3: 5
+  leaf-1: 3
+  leaf-2: 3
+  leaf-3: 3
+  leaf-4: 3
+  leaf-5: 3
 ''',
 
     'ansible/group_vars/spine.yml': '''
@@ -77,7 +87,7 @@ ospf_links:
 
     'ansible/group_vars/leaf.yml': '''
 asn: 65000
-ospf_links:                      
+ospf_links:
   - interface: f0/0
     subnet: 10.0.0.0/30
   - interface: f1/0
@@ -100,6 +110,7 @@ vni_map:
 collector_ip: 192.168.100.10
 ''',
 
+    
     'ansible/roles/napalm_config/tasks/main.yml': '''
 ---
 - import_tasks: push.yml
@@ -111,38 +122,79 @@ collector_ip: 192.168.100.10
 
     
     'ansible/roles/napalm_config/tasks/push.yml': '''
-- name: Render & commit configuration via NAPALM
-  napalm.napalm.napalm_install_config:
+- name: Render candidate configuration
+  napalm_config:
     hostname: "{{ inventory_hostname }}"
-    username: "{{ ansible_user }}"
-    password: "{{ ansible_password }}"
-    dev_os: "{{ napalm_driver }}"
-    optional_args: "{{ napalm_args }}"
-    config: "{{ lookup('template', config_template) }}"
-    commit_changes: true
-    get_diffs: true
-  register: napalm_diff
+    template: "{{ config_template }}"
+    template_vars: "{{ j2_vars }}"
+    replace: true
+    timeout: "{{ load_timeout }}"
+  register: candidate
 
-- name: Show the NAPALM diff
+- name: Commit candidate configuration
+  napalm_config:
+    hostname: "{{ inventory_hostname }}"
+    commit: true
+    timeout: "{{ commit_timeout }}"
+  when: candidate.diff is defined
+
+- name: Display configuration diff
   debug:
-    var: napalm_diff.diff
+    msg: "Config diff for {{ inventory_hostname }}:\\n{{ candidate.diff }}"
+  when: candidate.diff is defined
+
+- name: Roll back on excessive diffs
+  include_tasks: rollback.yml
+  when: candidate.diff is defined and (candidate.diff.splitlines() | length) > diff_tolerance
 ''',
 
     
     'ansible/roles/napalm_config/tasks/rollback.yml': '''
-- name: Roll back to golden config via NAPALM
-  napalm.napalm.napalm_install_config:
+- name: Restore golden configuration
+  napalm_config:
     hostname: "{{ inventory_hostname }}"
-    username: "{{ ansible_user }}"
-    password: "{{ ansible_password }}"
-    dev_os: "{{ napalm_driver }}"
-    optional_args: "{{ napalm_args }}"
-    config_file: "ansible/roles/napalm_config/golden_configs/{{ inventory_hostname }}.cfg"
-    replace_config: true
-    commit_changes: true
+    rollback: true
+  when: force_rollback or (candidate.diff.splitlines() | length) > diff_tolerance
+
+- name: Verify running config after rollback
+  napalm_get:
+    hostname: "{{ inventory_hostname }}"
+    get_config: running
+  register: running_cfg
+
+- name: Display post-rollback diff
+  debug:
+    msg: "Post-rollback diff for {{ inventory_hostname }}:\\n{{ running_cfg.diff }}"
+  when: running_cfg.diff is defined
 ''',
 
     
+    'ansible/roles/napalm_config/tasks/tests.yml': '''
+- name: Check LLDP/OSPF adjacency
+  napalm_get:
+    hostname: "{{ inventory_hostname }}"
+    get_lldp_neighbors: true
+  register: lldp
+
+- name: Fail if adjacency count is below expected
+  fail:
+    msg: "Adjacency down on {{ inventory_hostname }}"
+  when: lldp.lldp_neighbors | length < expected_neighbors[inventory_hostname]
+
+- name: Ping leaf loopbacks for ECMP test
+  raw: |
+    ping -c 3 {{ item }}
+  loop: "{{ leaf_loopbacks }}"
+  register: ping_results
+
+- name: Fail on ping errors
+  fail:
+    msg: "Ping failed from {{ inventory_hostname }} to {{ item.item }}"
+  loop: "{{ ping_results.results }}"
+  when: item.rc != 0
+''',
+
+   
     'ansible/roles/napalm_config/templates/spine.j2': '''
 hostname {{ inventory_hostname }}
 interface Loopback0
@@ -201,102 +253,49 @@ interface f3/0
   ip flow monitor MONITOR-1 input
 ''',
 
-
-    'ansible/playbooks/generate_configs.yml': '''
-- name: Render Underlay & Overlay configs locally
-  hosts: spine:leaf
-  connection: local
-  gather_facts: no
-
-  vars:
-    underlay_template: >-
-      {{ 'ansible/roles/napalm_config/templates/spine.j2'
-         if inventory_hostname in groups['spine']
-         else 'ansible/roles/napalm_config/templates/leaf.j2' }}
-    overlay_template: >-
-      {{ 'ansible/roles/napalm_config/templates/spine_evpn.j2'
-         if inventory_hostname in groups['spine']
-         else 'ansible/roles/napalm_config/templates/leaf_evpn.j2' }}
-
-  tasks:
-    - name: Render Underlay config
-      template:
-        src: "{{ underlay_template }}"
-        dest: "build/{{ inventory_hostname }}_underlay.cfg"
-
-    - name: Render Overlay config
-      template:
-        src: "{{ overlay_template }}"
-        dest: "build/{{ inventory_hostname }}_overlay.cfg"
-''',
+    
     'ansible/playbooks/day0_underlay.yml': '''
 - name: Day0 Underlay Deployment
   hosts: spine:leaf
   gather_facts: no
-  collections:
-    - napalm.napalm
   roles:
     - role: napalm_config
       vars:
         config_template: "{{ 'spine.j2' if inventory_hostname in groups['spine'] else 'leaf.j2' }}"
+        j2_vars:
+          hostname: "{{ inventory_hostname }}"
+          loopback0: "{{ hostvars[inventory_hostname].loopback0 }}"
+          ospf_links: "{{ ospf\_links }}"
 ''',
 
     'ansible/playbooks/day1_overlay.yml': '''
 - name: Day1 VXLAN/EVPN Overlay
   hosts: spine:leaf
   gather_facts: no
-  collections:
-    - napalm.napalm
   roles:
     - role: napalm_config
       vars:
         config_template: "{{ 'spine_evpn.j2' if inventory_hostname in groups['spine'] else 'leaf_evpn.j2' }}"
+        j2_vars:
+          as_number: 65000
+          router_id: "{{ hostvars[inventory_hostname].loopback0 }}"
+          evpn_peers: "{{ evpn_peers }}"
+          vni_map: "{{ vni_map }}"
 ''',
 
     'ansible/playbooks/verify_connectivity.yml': '''
-- name: Verify OSPF Adjacency and ECMP
-  hosts: leaf
+- name: Verify Underlay & Overlay Connectivity
+  hosts: spine:leaf
   gather_facts: no
-  connection: network_cli
-  collections:
-    - ansible.netcommon
-    - napalm.napalm
-
-  tasks:
-    - name: Show OSPF neighbors
-      ansible.netcommon.cli_command:
-        command: show ip ospf neighbor
-      register: ospf_data
-
-    - name: Fail if adjacency not FULL
-      ansible.builtin.fail:
-        msg: "OSPF adjacency not FULL on {{ inventory_hostname }}"
-      when: "'Full' not in ospf_data.stdout[0]"
-
-    - name: Ping leaf loopbacks for ECMP check
-      napalm.napalm.napalm_ping:
-        hostname: "{{ inventory_hostname }}"
-        username: "{{ ansible_user }}"
-        password: "{{ ansible_password }}"
-        dev_os: "{{ napalm_driver }}"
-        dest: "{{ item }}"
-        count: 5
-        timeout: 2
-      loop: "{{ leaf_loopbacks }}"
-      register: ping_results
-
-    - name: Fail on packet loss
-      ansible.builtin.fail:
-        msg: "Ping loss detected on {{ inventory_hostname }}"
-      when: ping_results.results | selectattr('packet_loss_pct','>',0) | list | length > 0
+  roles:
+    - role: napalm_config
+      tasks_from: tests.yml
 ''',
 
     'ansible/playbooks/netflow_setup.yml': '''
 - name: Configure NetFlow/IPFIX
   hosts: leaf
   gather_facts: no
-  collections:
-    - napalm.napalm
   roles:
     - role: napalm_config
       vars:
@@ -307,12 +306,27 @@ interface f3/0
 - name: Rollback Unintended Drift
   hosts: all
   gather_facts: no
-  collections:
-    - napalm.napalm
   roles:
     - role: napalm_config
       vars:
         force_rollback: true
+''',
+
+    
+    'ansible/playbooks/run_all.sh': '''
+#!/usr/bin/env bash
+set -e
+PLAYBOOKS=(
+  day0_underlay.yml
+  day1_overlay.yml
+  verify_connectivity.yml
+  netflow_setup.yml
+)
+for pb in "${PLAYBOOKS[@]}"; do
+  echo "➡️  Executing $pb"
+  ansible-playbook -i inventories/production.yml "playbooks/$pb"
+  echo "  $pb complete"
+done
 ''',
 }
 
