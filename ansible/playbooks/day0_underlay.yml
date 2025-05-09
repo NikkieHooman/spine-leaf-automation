@@ -1,0 +1,12 @@
+- name: Day0 Underlay Deployment
+  hosts: spine:leaf
+  gather_facts: no
+  roles:
+    - role: napalm_config
+      vars:
+        config_template: "{{ 'spine.j2' if inventory_hostname in groups['spine'] else 'leaf.j2' }}"
+        j2_vars:
+          hostname: "{{ inventory_hostname }}"
+          loopback0: "{{ hostvars[inventory_hostname].loopback0 }}"
+          ospf_links: "{{ ospf\_links }}"
+
