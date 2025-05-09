@@ -1,0 +1,12 @@
+ansible_user: admin
+ansible_password: P@ssw0rd
+napalm_driver: ios
+napalm_args: {}
+
+leaf_loopbacks:
+  - 10.0.0.42
+  - 10.0.0.46
+  - 10.0.0.50
+  - 10.0.0.54
+  - 10.0.0.58
+
