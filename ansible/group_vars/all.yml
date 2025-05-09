@@ -9,4 +9,13 @@ leaf_loopbacks:
   - 10.0.0.50
   - 10.0.0.54
   - 10.0.0.58
+expected_neighbors:
+  spine-1: 5
+  spine-2: 5
+  spine-3: 5
+  leaf-1: 3
+  leaf-2: 3
+  leaf-3: 3
+  leaf-4: 3
+  leaf-5: 3
 
