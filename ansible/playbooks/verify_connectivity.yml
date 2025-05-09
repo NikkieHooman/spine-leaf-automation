@@ -1,0 +1,7 @@
+- name: Verify Underlay & Overlay Connectivity
+  hosts: spine:leaf
+  gather_facts: no
+  roles:
+    - role: napalm_config
+      tasks_from: tests.yml
+
